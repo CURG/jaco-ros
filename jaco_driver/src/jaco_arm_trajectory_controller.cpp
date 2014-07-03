@@ -95,42 +95,39 @@ namespace jaco_arm{
       for(int i = 0; i<num_jaco_joints; ++i)
         previous_cmd[i] = joint_pos[i];
 
-      BOOST_FOREACH(trajectory_msgs::JointTrajectoryPoint point, goal->trajectory.points){
+    BOOST_FOREACH(trajectory_msgs::JointTrajectoryPoint point, goal->trajectory.points){
     ROS_INFO("Trajectory Point");
     double joint_cmd[num_jaco_joints];
+    
+    
+    //Transform the joint trajectory point a jaco_angle point by iterating over the indices of the entries in the
+    //joint trajectory point and looking up the joint name in the internal joint_names list to find the index
     for(int trajectory_index = 0; trajectory_index<goal->trajectory.joint_names.size(); ++trajectory_index){
-      std::string joint_name = goal->trajectory.joint_names[trajectory_index];
-      int joint_index = std::distance(joint_names.begin(), std::find(joint_names.begin(), joint_names.end(), joint_name));
+      
+      std::string joint_name = goal->trajectory.joint_names[trajectory_index]; // The name of the current joint in the trajectory point
+      int joint_index = std::distance(joint_names.begin(), std::find(joint_names.begin(), joint_names.end(), joint_name)); // Get the index of that joint name in the internal list
+      
+      //If the joint name was found, pack the joint position from the trajectory point into a temporary vector in expected order for the jaco
       if(joint_index >=0 && joint_index < num_jaco_joints){
         ROS_INFO("%s: (%d -> %d) = %f", joint_name.c_str(), trajectory_index, joint_index, point.positions[trajectory_index]);
         joint_cmd[joint_index] = nearest_equivelent(point.positions[trajectory_index], previous_cmd[joint_index]);
       }
-    }
-        for(int i = 0; i<num_jaco_joints; ++i)
-          previous_cmd[i] = joint_pos[i];
+    }//for
+    
+    //    for(int i = 0; i<num_jaco_joints; ++i)
+    //      previous_cmd[i] = joint_pos[i];
 
+    jaco_msgs::JacoAngles jAnglesMsg;
+    jAngles.Angle_J1 = joint_cmd[0];
+    jAngles.Angle_J2 = joint_cmd[1];
+    jAngles.Angle_J3 = joint_cmd[2];
+    jAngles.Angle_J4 = joint_cmd[3];
+    jAngles.Angle_J5 = joint_cmd[4];
+    jAngles.Angle_J6 = joint_cmd[5];
+    
+    JacoAngles target(jAnglesMsg);
+    arm_comm_.setJointAngles(target);
 
-    AngularInfo angles;
-    FingersPosition fingers;
-    angles.Actuator1 = joint_cmd[0]*RAD_TO_DEG;
-    angles.Actuator2 = joint_cmd[1]*RAD_TO_DEG;
-    angles.Actuator3 = joint_cmd[2]*RAD_TO_DEG;
-    angles.Actuator4 = joint_cmd[3]*RAD_TO_DEG;
-    angles.Actuator5 = joint_cmd[4]*RAD_TO_DEG;
-    angles.Actuator6 = joint_cmd[5]*RAD_TO_DEG;
-
-
-    TrajectoryPoint jaco_point;
-    memset(&jaco_point, 0, sizeof(jaco_point));
-
-    jaco_point.LimitationsActive = false;
-    jaco_point.Position.Delay = 0.0;
-    jaco_point.Position.Type = ANGULAR_POSITION;
-    jaco_point.Position.Actuators = angles;
-    jaco_point.Position.HandMode = HAND_NOMOVEMENT;
-
-    SendBasicTrajectory(jaco_point);
-      }
     }
 
     ros::Rate rate(10);
