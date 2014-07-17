@@ -42,6 +42,7 @@ JacoArm::JacoArm(JacoComm &arm, const ros::NodeHandle &nodeHandle)
     node_handle_.param<double>("joint_angular_vel_timeout", joint_vel_interval_seconds_, 0.1);
     node_handle_.param<double>("cartesian_vel_timeout", cartesian_vel_interval_seconds_, 0.1);
     node_handle_.param<std::string>("robot_prefix", robot_prefix_, "jaco_");
+    
 
     status_timer_ = node_handle_.createTimer(ros::Duration(status_interval_seconds_),
                                            &JacoArm::statusTimer, this);
