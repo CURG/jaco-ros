@@ -41,6 +41,7 @@ JacoArm::JacoArm(JacoComm &arm, const ros::NodeHandle &nodeHandle)
     node_handle_.param<double>("cartesian_vel_timeout", cartesian_vel_timeout_seconds_, 0.25);
     node_handle_.param<double>("joint_angular_vel_timeout", joint_vel_interval_seconds_, 0.1);
     node_handle_.param<double>("cartesian_vel_timeout", cartesian_vel_interval_seconds_, 0.1);
+    node_handle_.param<std::string>("robot_prefix", robot_prefix_, "jaco_");
 
     status_timer_ = node_handle_.createTimer(ros::Duration(status_interval_seconds_),
                                            &JacoArm::statusTimer, this);
@@ -211,8 +212,7 @@ void JacoArm::publishJointAngles(void)
     jaco_angles.joint6 = current_angles.Actuator6;
 
     sensor_msgs::JointState joint_state;
-    std::string robot_prefix = "jaco_";
-    std::string nameArgs[] = {robot_prefix+"joint_1", robot_prefix+"joint_2", robot_prefix+"joint_3", robot_prefix+"joint_4", robot_prefix+"joint_5", robot_prefix+"joint_6"};
+    std::string nameArgs[] = {robot_prefix_+"joint_1", robot_prefix_+"joint_2", robot_prefix_+"joint_3", robot_prefix_+"joint_4", robot_prefix_+"joint_5", robot_prefix_+"joint_6"};
     std::vector<std::string> joint_names(nameArgs, nameArgs + 6);
     joint_state.name = joint_names;
     // Transform from Kinova DH algorithm to physical angles in radians, then place into vector array
