@@ -18,7 +18,7 @@
 #define COMM_LAYER_PATH "Kinova.API.CommLayerUbuntu.so"
 
 //This indicates the success of the current operation
-#define SUCCESS 1
+//#define SUCCESS 1
 #define KINOVA_ 1
 
 // ***** E R R O R   C O D E S ******

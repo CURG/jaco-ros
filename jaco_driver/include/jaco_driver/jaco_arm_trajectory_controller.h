@@ -16,12 +16,18 @@
 #include <jaco_msgs/QuaternionToEuler.h>
 #include "jaco_driver/jaco_comm.h"
 #include <math.h>
+#include <moveit/kinematics_base/kinematics_base.h>
+#include <moveit/robot_model/joint_model_group.h>
+#include <moveit/robot_model_loader/robot_model_loader.h>
+#include <moveit/robot_model/joint_model.h>
+#include <moveit/robot_model/robot_model.h>
+#include <sensor_msgs/JointState.h>
 
 #define NUM_JACO_JOINTS 6
 #define NUM_JACO_FINGER_JOINTS 3
 #define NUM_JOINTS (NUM_JACO_JOINTS+NUM_JACO_FINGER_JOINTS)
 
-#define LARGE_ACTUATOR_VELOCITY 0.8378 //maximum velocity of large actuator (joints 1-3)
+#define LARGE_ACTUATOR_VELOCITY 0.6378 //maximum velocity of large actuator (joints 1-3)
 #define SMALL_ACTUATOR_VELOCITY 1.0472 //maximum velocity of small actuator (joints 4-6)
 #define TIME_SCALING_FACTOR 4 //keep the trajectory at a followable speed
 
@@ -31,9 +37,9 @@
 #define MAX_FINGER_VEL 30 //maximum finger actuator velocity
 
 //gains for trajectory follower
-#define KP 300.0
-#define KV 20.0
-#define ERROR_THRESHOLD .03 //threshold in radians for combined joint error to consider motion a success
+#define KP 500.0
+#define KV 10.0
+#define ERROR_THRESHOLD .01 //threshold in radians for combined joint error to consider motion a success
 
 namespace jaco{
 
@@ -59,6 +65,8 @@ public:
   void execute_joint_trajectory(const control_msgs::FollowJointTrajectoryGoalConstPtr &goal);
 
 private:
+  sensor_msgs::JointState getError (sensor_msgs::JointState desired_joint_state, sensor_msgs::JointState current_joint_state);
+  bool isCloseEnough(sensor_msgs::JointState desired_joint_state, sensor_msgs::JointState current_joint_state, double threshold);
   std::vector<std::string> joint_names;
   std::vector<double> joint_pos;
   std::vector<double> joint_vel;
@@ -75,6 +83,7 @@ private:
   double rate_hz_;
   ros::Time last_nonstall_time_;
   JacoAngles last_nonstall_angles_;
+  robot_model::RobotModelConstPtr robot_model_ptr_;
 };
 
 }

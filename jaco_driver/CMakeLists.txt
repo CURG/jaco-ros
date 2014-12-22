@@ -15,6 +15,9 @@ find_package(catkin REQUIRED dynamic_reconfigure COMPONENTS
   message_generation
   controller_manager
   genmsg
+        moveit_ros_planning
+         moveit_msgs
+         moveit_core
 )
 generate_dynamic_reconfigure_options(
   #cfg/JacoPositionConfig.cfg
@@ -25,7 +28,10 @@ link_directories(${PROJECT_SOURCE_DIR}/lib/${CMAKE_LIBRARY_ARCHITECTURE})
 catkin_package(
   INCLUDE_DIRS include
 #  LIBRARIES jaco_driver
-  CATKIN_DEPENDS actionlib actionlib_msgs geometry_msgs jaco_msgs roscpp rospy sensor_msgs std_msgs tf ecl_geometry
+  CATKIN_DEPENDS actionlib actionlib_msgs geometry_msgs jaco_msgs roscpp rospy sensor_msgs std_msgs tf ecl_geometry moveit_ros_planning
+         moveit_msgs
+         moveit_core
+
 #  DEPENDS system_lib
 )
 

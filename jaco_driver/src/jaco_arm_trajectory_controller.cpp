@@ -4,7 +4,8 @@
 #include <boost/foreach.hpp>
 #include <kinova/KinovaTypes.h>
 #include "jaco_driver/jaco_types.h"
-
+#include <angles/angles.h>
+#include <urdf_model/model.h>
 
 namespace jaco{
 
@@ -43,8 +44,12 @@ namespace jaco{
     
     joint_pos.resize(num_joints_);
     joint_vel.resize(num_joints_);
-    joint_eff.resize(num_joints_);
-    
+    joint_eff.resize(num_joints_);    
+    robot_model_loader::RobotModelLoader loader("robot_description", false);
+
+    robot_model_ptr_ = loader.getModel();
+
+
     trajectory_server_.start();
     gripper_server_.start();
     smooth_joint_trajectory_server.start();
@@ -75,14 +80,41 @@ namespace jaco{
      return value;
   }
 
-  static inline double nearest_equivelent(double desired, double current){
-    double previous_rev = floor(current / (2*M_PI));
-    double next_rev = ceil(current / (2*M_PI));
-    double lower_desired = previous_rev*(2*M_PI) + desired;
-    double upper_desired = next_rev*(2*M_PI) + desired;
-    if(abs(current - lower_desired) < abs(current - upper_desired))
-      return lower_desired;
-    return upper_desired;
+
+
+
+
+
+  static inline double nearest_equivelent(double from, double to, double lower, double upper){
+    //This is a hack for the fact that all of the joints taht allow a 2*M_PI rotation also allow slightly more.
+     /* if (upper > 6)
+         upper = 2.5*M_PI;
+     double min_distance;
+     if (fabs(from - to) < .1)
+          return to;
+    angles::shortest_angular_distance_with_limits(from, to, lower, upper, min_distance);
+
+    if(min_distance < M_PI)
+        return from;
+    //If the number we are going to is greater, we must go up. Otherwise we can go down.
+    double multiplier = -1;
+    if(to - from > 0)
+        multiplier = 1;
+    double modifier = 2*M_PI*floor(min_distance/(2.0*M_PI))*multiplier;
+    ROS_ERROR_STREAM("Nearest_Equivelent: " << from << " current: " << to << " lower: " << lower
+                     <<" upper: " << upper <<" min_distance: " <<min_distance << " Modifier: " << modifier);
+
+
+    return from + modifier;
+    */
+      double min_distance;
+      if (fabs(from - to) < .3)
+          return from;
+      //angles::shortest_angular_distance_with_limits(from, to, to-M_PI, to+M_PI, min_distance);
+      min_distance = angles::shortest_angular_distance(from, to);
+      if(angles::normalize_angle_positive(from) == angles::normalize_angle_positive(to - min_distance))
+          return to - min_distance;
+      return to + min_distance;
   }
 
   std::vector<double> VectorDifference(std::vector<double> &v1, std::vector<double> &v2)
@@ -209,7 +241,10 @@ namespace jaco{
                       //If the joint name was found, pack the joint position from the trajectory point into a temporary vector in expected order for the jaco
                       if(joint_index >=0 && joint_index < num_jaco_joints_){
                           ROS_INFO("%s: (%d -> %d) = %f", joint_name.c_str(), trajectory_index, joint_index, point.positions[trajectory_index]);
-                          joint_cmd[joint_index] = nearest_equivelent(simplify_angle(point.positions[trajectory_index]), previous_cmd[joint_index]);
+                          robot_model::VariableBounds bounds = robot_model_ptr_->getVariableBounds(joint_names[trajectory_index]);
+                          joint_cmd[joint_index] = nearest_equivelent(point.positions[trajectory_index], previous_cmd[joint_index],
+                                                                      bounds.min_position_,
+                                                                      bounds.max_position_);
                       }
                   }//for
 
@@ -287,8 +322,11 @@ namespace jaco{
               }
 
               if(joint_index >=0 && joint_index < num_jaco_joints_){
-                  ROS_INFO("%s: (%d -> %d) = %f", joint_name.c_str(), trajectory_index, joint_index, point.positions[trajectory_index]);
-                  joint_cmd[joint_index] = nearest_equivelent(simplify_angle(point.positions[trajectory_index]), previous_cmd[joint_index]);
+                  ROS_INFO("%s: (%d -> %d) = %f", joint_name.c_str(), trajectory_index, joint_index, point.positions[joint_index]);
+                  robot_model::VariableBounds bounds = robot_model_ptr_->getVariableBounds(joint_names[joint_index]);
+                  joint_cmd[joint_index] = nearest_equivelent(simplify_angle(point.positions[trajectory_index]), previous_cmd[joint_index],
+                                                              bounds.min_position_,
+                                                              bounds.max_position_);
               }
           }//for
 
@@ -428,19 +466,35 @@ namespace jaco{
   }
 
 
-  sensor_msgs::JointState getError (sensor_msgs::JointState desired_joint_state, sensor_msgs::JointState current_joint_state)
+  sensor_msgs::JointState JacoArmTrajectoryController::getError (sensor_msgs::JointState desired_joint_state, sensor_msgs::JointState current_joint_state)
   {
       sensor_msgs::JointState error;
       error.position.resize(6,0);
       for (unsigned int i=0; i<NUM_JACO_JOINTS; i++)
-      {
-          error.position[i] = nearest_equivelent(simplify_angle(desired_joint_state.position[i]), current_joint_state.position[i]) - current_joint_state.position[i];
+      {          
+          robot_model::VariableBounds bounds = robot_model_ptr_->getVariableBounds(joint_names[i]);
+          int error_sign = 1;
+          double d1 = angles::normalize_angle_positive(desired_joint_state.position[i]) - angles::normalize_angle_positive(current_joint_state.position[i]);
+          //double d2 = angles::normalize_angle_positive(current_joint_state.position[i]) - angles::normalize_angle_positive(desired_joint_state.position[i]);
+
+          if(fabs(d1) > M_PI)
+            if (d1 < 0)
+                d1 =  -d1 - M_PI;
+            else
+                d1 = -d1 + M_PI;
+          error.position[i] = d1;
+
+          //if (angles::normalize_angle_positive(desired_joint_state.position[i]) - current_joint_state.position[i] > 0)
+          //error.position[i] = nearest_equivelent(desired_joint_state.position[i], current_joint_state.position[i],
+          //                                            bounds.min_position_,
+           //                                           bounds.max_position_) - current_joint_state.position[i];
+          ROS_ERROR_STREAM("getError:: joint_ind "<< i <<"error" << error.position[i] << " desired_joint: " << desired_joint_state.position[i] <<" current_joint_state: " <<current_joint_state.position[i]);
       }
       return error;
 
   }
 
-  bool isCloseEnough(sensor_msgs::JointState desired_joint_state, sensor_msgs::JointState current_joint_state, double threshold)
+  bool JacoArmTrajectoryController::isCloseEnough(sensor_msgs::JointState desired_joint_state, sensor_msgs::JointState current_joint_state, double threshold)
   {
       sensor_msgs::JointState error=getError(desired_joint_state, current_joint_state);
       double total_error=0;
@@ -502,9 +556,16 @@ namespace jaco{
       current_joint_state = toNormalizedJointState(position_data,joint_names, &goal->trajectory.joint_names);
       for(unsigned int i=0; i<NUM_JACO_JOINTS; i++)
       {
-          desired_joint_state.position[i]=nearest_equivelent(desired_joint_state.position[i], current_joint_state.position[i]);
+          robot_model::VariableBounds bounds = robot_model_ptr_->getVariableBounds(joint_names[i]);
+          desired_joint_state.position[i] = nearest_equivelent(goal->trajectory.points[0].positions[i], current_joint_state.position[i],
+                                                      bounds.min_position_,
+                                                      bounds.max_position_);
+          ROS_ERROR_STREAM("Joint name: " << joint_names[i] << " Desired joint state " << desired_joint_state.name[i] << " desired: " << desired_joint_state.position[i]
+                           << " current_joint_state_position: "<< current_joint_state.position[i] << " Goal state: " << goal->trajectory.points[0].positions[i] << " Bounds min: "
+                           << bounds.min_position_ << " Bounds max: " << bounds.max_position_);
+
       }
-      if(!isCloseEnough(desired_joint_state, current_joint_state, .03))
+      if(!isCloseEnough(desired_joint_state, current_joint_state, .05))
       {
           control_msgs::FollowJointTrajectoryResult result;
           result.error_code = control_msgs::FollowJointTrajectoryResult::PATH_TOLERANCE_VIOLATED;
@@ -592,7 +653,6 @@ namespace jaco{
     sensor_msgs::JointState prevError;
     prevError.name = goal->trajectory.joint_names;
     prevError.position.resize(NUM_JACO_JOINTS,0);
-    double current_joint_pos[NUM_JACO_JOINTS];
     AngularInfo angular_velocities;
     TrajectoryPoint trajPoint;
     trajPoint.InitStruct();
@@ -625,12 +685,22 @@ namespace jaco{
       t = std::min(ros::Time::now().toSec() - startTime, timePoints.at(timePoints.size() - 1));
 
       for (int i = 0; i < NUM_JACO_JOINTS; ++i)
-          desired_joint_state.position[i] = nearest_equivelent(splines.at(i)(t), current_joint_state.position[i]);
-      if (t == timePoints.at(timePoints.size() - 1) && isCloseEnough(desired_joint_state, current_joint_state, .03))
+      {
+          robot_model::VariableBounds bounds = robot_model_ptr_->getVariableBounds(joint_names[i]);
+          desired_joint_state.position[i] = nearest_equivelent(simplify_angle(splines.at(i)(t)), current_joint_state.position[i],
+                                                      bounds.min_position_,
+                                                      bounds.max_position_);
+      }
+
+      if (t == timePoints.at(timePoints.size() - 1) && isCloseEnough(desired_joint_state, current_joint_state, .01))
         {
           arm_comm_.stopAPI();
           arm_comm_.startAPI();
           trajectoryComplete = true;
+          command.position = std::vector<double>(6,0.0);
+
+          angular_velocities = toJacoVelocities(command, joint_names);
+          arm_comm_.setJointVelocities(angular_velocities);
           ROS_INFO("Trajectory complete!");
           break;
         }
@@ -643,9 +713,9 @@ namespace jaco{
 
       angular_velocities = toJacoVelocities(command, joint_names);
 
-
-        //send the velocity command
-        if(fabs(angular_velocities.Actuator1)>50  || fabs(angular_velocities.Actuator2)>50 || fabs(angular_velocities.Actuator3)>50 || fabs(angular_velocities.Actuator4)>50 || fabs(angular_velocities.Actuator5)>50 || fabs(angular_velocities.Actuator6)>50)
+      float joint_velocity_limit = 200;
+      //send the velocity command
+        if(fabs(angular_velocities.Actuator1)>joint_velocity_limit  || fabs(angular_velocities.Actuator2)>joint_velocity_limit || fabs(angular_velocities.Actuator3)>joint_velocity_limit || fabs(angular_velocities.Actuator4)>joint_velocity_limit || fabs(angular_velocities.Actuator5)>joint_velocity_limit || fabs(angular_velocities.Actuator6)>joint_velocity_limit)
         {
             ROS_ERROR("Angular velocity exceeds predefined velocity threshold.");
             ROS_ERROR_STREAM("1: " <<angular_velocities.Actuator1 << " 2: "

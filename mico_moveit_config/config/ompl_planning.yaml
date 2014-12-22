@@ -1,6 +1,9 @@
 planner_configs:
   SBLkConfigDefault:
     type: geometric::SBL
+  SBLkConfigDefault2:
+    type: geometric::SBL
+    range: 0.01
   ESTkConfigDefault:
     type: geometric::EST
   LBKPIECEkConfigDefault:
@@ -34,6 +37,7 @@ manipulator:
     - TRRTkConfigDefault
     - PRMkConfigDefault
     - PRMstarkConfigDefault
+    - SBLkConfigDefault2
   projection_evaluator: joints(mico_joint_1,mico_joint_2)
   longest_valid_segment_fraction: 0.05
 gripper:
@@ -49,5 +53,6 @@ gripper:
     - TRRTkConfigDefault
     - PRMkConfigDefault
     - PRMstarkConfigDefault
+    - SBLkConfigDefault2
   projection_evaluator: joints(mico_joint_finger_1,mico_joint_finger_1_distal)
   longest_valid_segment_fraction: 0.05
