@@ -203,12 +203,13 @@ namespace jaco {
      * @param angles Angles to be converted
      */
     void JacoTrajectoryActionServer::convertDHAnglesToPhysical(AngularInfo &angles) {
+        double j6o = arm_comm_.robotType() == 0 ? 260.0 : 270.0;
         angles.Actuator1 = 180 - angles.Actuator1;
         angles.Actuator2 = 270 + angles.Actuator2;
         angles.Actuator3 =  90 - angles.Actuator3;
         angles.Actuator4 = 180 - angles.Actuator4;
         angles.Actuator5 = 180 - angles.Actuator5;
-        angles.Actuator6 = 260 - angles.Actuator6;
+        angles.Actuator6 = j6o - angles.Actuator6;
     }
     
     /**
@@ -217,12 +218,13 @@ namespace jaco {
      * @param angles Angles to be converted
      */
     void JacoTrajectoryActionServer::convertPhysicalAnglesToDH(AngularInfo &angles) {
+        double j6o = arm_comm_.robotType() == 0 ? 260.0 : 270.0;
         angles.Actuator1 = 180 - angles.Actuator1;
         angles.Actuator2 = angles.Actuator2 - 270;
         angles.Actuator3 =  90 - angles.Actuator3;
         angles.Actuator4 = 180 - angles.Actuator4;
         angles.Actuator5 = 180 - angles.Actuator5;
-        angles.Actuator6 = 260 - angles.Actuator6;
+        angles.Actuator6 = j6o - angles.Actuator6;
     }
 
     /**
