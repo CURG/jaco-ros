@@ -23,7 +23,7 @@
           <visual>
                      <geometry>
                              <mesh
-              filename="package://jaco_model/meshes/${link_name}.dae"/>
+              filename="package://jaco_model/meshes/${link_name}.stl"/>
                     </geometry>
                     <material name="carbon_fiber">
                 <color rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
@@ -32,7 +32,7 @@
             <collision>
                     <geometry>
                              <mesh
-              filename="package://jaco_model/meshes/${link_name}.dae"/>
+              filename="package://jaco_model/meshes/${link_name}.stl"/>
                     </geometry>
             </collision>
     </link>
