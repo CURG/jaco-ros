@@ -47,17 +47,27 @@
 #include "jaco_driver/jaco_comm.h"
 #include <string>
 #include <vector>
+#include <boost/thread.hpp>
 
 
 namespace jaco
 {
+
+  class debug_scoped_lock:public boost::recursive_mutex::scoped_lock
+  {
+  public: debug_scoped_lock(boost::recursive_mutex &api_mutex) :
+      boost::recursive_mutex::scoped_lock(api_mutex)
+      {
+        ROS_INFO_STREAM("Thread ID: " << boost::this_thread::get_id());
+      }
+  };
 
 JacoComm::JacoComm(const ros::NodeHandle& node_handle,
                    boost::recursive_mutex &api_mutex,
                    const bool is_movement_on_start)
     : is_software_stop_(false), api_mutex_(api_mutex)
 {
-    boost::recursive_mutex::scoped_lock lock(api_mutex_);
+    debug_scoped_lock lock(api_mutex_);
 
     // Get the serial number parameter for the arm we wish to connec to
     std::string serial_number = "";
@@ -176,7 +186,7 @@ JacoComm::JacoComm(const ros::NodeHandle& node_handle,
 
 JacoComm::~JacoComm()
 {
-    boost::recursive_mutex::scoped_lock lock(api_mutex_);
+    debug_scoped_lock lock(api_mutex_);
     jaco_api_.closeAPI();
 }
 
@@ -215,7 +225,7 @@ bool JacoComm::isHomed(void)
  */
 void JacoComm::homeArm(void)
 {
-    boost::recursive_mutex::scoped_lock lock(api_mutex_);
+    debug_scoped_lock lock(api_mutex_);
 
     if (isStopped())
     {
@@ -250,7 +260,7 @@ void JacoComm::homeArm(void)
 void JacoComm::initFingers(void)
 {
     ROS_INFO("Initializing fingers...this will take a few seconds and the fingers should open completely");
-    boost::recursive_mutex::scoped_lock lock(api_mutex_);
+    debug_scoped_lock lock(api_mutex_);
     int result = jaco_api_.initFingers();
     if (result != NO_ERROR_KINOVA)
     {
@@ -261,7 +271,7 @@ void JacoComm::initFingers(void)
 
 void JacoComm::initTrajectory(void)
 {
-    boost::recursive_mutex::scoped_lock lock(api_mutex_);
+    debug_scoped_lock lock(api_mutex_);
 
     int result = ERROR_NOT_INITIALIZED;
 
@@ -288,7 +298,7 @@ void JacoComm::initTrajectory(void)
 
 void JacoComm::addTrajectoryPoint(const TrajectoryPoint &point)
 {
-    boost::recursive_mutex::scoped_lock lock(api_mutex_);
+    debug_scoped_lock lock(api_mutex_);
 
     int result = NO_ERROR_KINOVA;
 
@@ -301,7 +311,7 @@ void JacoComm::addTrajectoryPoint(const TrajectoryPoint &point)
 
 void JacoComm::getActualTrajectoryInfo(TrajectoryPoint& currentPoint)
 {
-    boost::recursive_mutex::scoped_lock lock(api_mutex_);
+    debug_scoped_lock lock(api_mutex_);
 
     int result = jaco_api_.getActualTrajectoryInfo(currentPoint);
     if (result != NO_ERROR_KINOVA)
@@ -317,7 +327,7 @@ void JacoComm::getActualTrajectoryInfo(TrajectoryPoint& currentPoint)
  */
 void JacoComm::setJointAngles(const JacoAngles &angles, int timeout, bool push)
 {
-    boost::recursive_mutex::scoped_lock lock(api_mutex_);
+    debug_scoped_lock lock(api_mutex_);
 
     if (isStopped())
     {
@@ -366,7 +376,7 @@ void JacoComm::setJointAngles(const JacoAngles &angles, int timeout, bool push)
  */
 void JacoComm::setCartesianPosition(const JacoPose &position, int timeout, bool push)
 {
-    boost::recursive_mutex::scoped_lock lock(api_mutex_);
+    debug_scoped_lock lock(api_mutex_);
 
     if (isStopped())
     {
@@ -423,7 +433,7 @@ void JacoComm::setCartesianPosition(const JacoPose &position, int timeout, bool 
  */
 void JacoComm::setFingerPositions(const FingerAngles &fingers, int timeout, bool push)
 {
-    boost::recursive_mutex::scoped_lock lock(api_mutex_);
+    debug_scoped_lock lock(api_mutex_);
 
     if (isStopped())
     {
@@ -484,7 +494,7 @@ void JacoComm::setFingerPositions(const FingerAngles &fingers, int timeout, bool
  */
 void JacoComm::setJointVelocities(const AngularInfo &joint_vel)
 {
-    boost::recursive_mutex::scoped_lock lock(api_mutex_);
+    debug_scoped_lock lock(api_mutex_);
 
     if (isStopped())
     {
@@ -516,7 +526,7 @@ void JacoComm::setJointVelocities(const AngularInfo &joint_vel)
  */
 void JacoComm::setCartesianVelocities(const CartesianInfo &velocities)
 {
-    boost::recursive_mutex::scoped_lock lock(api_mutex_);
+    debug_scoped_lock lock(api_mutex_);
 
     if (isStopped())
     {
@@ -552,7 +562,7 @@ void JacoComm::setCartesianVelocities(const CartesianInfo &velocities)
  */
 void JacoComm::setConfig(const ClientConfigurations &config)
 {
-    boost::recursive_mutex::scoped_lock lock(api_mutex_);
+    debug_scoped_lock lock(api_mutex_);
     int result = jaco_api_.setClientConfigurations(config);
     if (result != NO_ERROR_KINOVA)
     {
@@ -567,7 +577,7 @@ void JacoComm::setConfig(const ClientConfigurations &config)
  */
 void JacoComm::sendJoystickCommand(const JoystickCommand &command)
 {
-    boost::recursive_mutex::scoped_lock lock(api_mutex_);
+    debug_scoped_lock lock(api_mutex_);
 
     startAPI();
 
@@ -584,7 +594,7 @@ void JacoComm::sendJoystickCommand(const JoystickCommand &command)
  */
 void JacoComm::getJointAngles(JacoAngles &angles)
 {
-    boost::recursive_mutex::scoped_lock lock(api_mutex_);
+    debug_scoped_lock lock(api_mutex_);
     AngularPosition jaco_angles;
     memset(&jaco_angles, 0, sizeof(jaco_angles));  // zero structure
 
@@ -603,7 +613,7 @@ void JacoComm::getJointAngles(JacoAngles &angles)
 
 void JacoComm::getForceAngularGravityFree(JacoAngles &forces)
 {
-    boost::recursive_mutex::scoped_lock lock(api_mutex_);
+    debug_scoped_lock lock(api_mutex_);
     AngularPosition jaco_angles;
     memset(&jaco_angles, 0, sizeof(jaco_angles));  // zero structure
 
@@ -626,7 +636,7 @@ void JacoComm::getForceAngularGravityFree(JacoAngles &forces)
 
 void JacoComm::getForceCartesian(JacoPose &force)
 {
-    boost::recursive_mutex::scoped_lock lock(api_mutex_);
+    debug_scoped_lock lock(api_mutex_);
     CartesianPosition jaco_cartesian_force;
     memset(&jaco_cartesian_force, 0, sizeof(jaco_cartesian_force));  // zero structure
 
@@ -640,7 +650,7 @@ void JacoComm::getForceCartesian(JacoPose &force)
 
 void JacoComm::getForcesInfo(ForcesInfo &forces_info)
 {
-    boost::recursive_mutex::scoped_lock lock(api_mutex_);
+    debug_scoped_lock lock(api_mutex_);
     memset(&forces_info, 0, sizeof(forces_info));  // zero structure
 
     int result = jaco_api_.getForcesInfo(forces_info);
@@ -655,7 +665,7 @@ void JacoComm::getForcesInfo(ForcesInfo &forces_info)
  */
 void JacoComm::getJointVelocities(JacoAngles &vels)
 {
-    boost::recursive_mutex::scoped_lock lock(api_mutex_);
+    debug_scoped_lock lock(api_mutex_);
     AngularPosition jaco_vels;
     memset(&jaco_vels, 0, sizeof(jaco_vels));  // zero structure
 
@@ -673,7 +683,7 @@ void JacoComm::getJointVelocities(JacoAngles &vels)
  */
 void JacoComm::getJointTorques(JacoAngles &tqs)
 {
-    boost::recursive_mutex::scoped_lock lock(api_mutex_);
+    debug_scoped_lock lock(api_mutex_);
     AngularPosition jaco_tqs;
     memset(&jaco_tqs, 0, sizeof(jaco_tqs));  // zero structure
 
@@ -690,7 +700,7 @@ void JacoComm::getJointTorques(JacoAngles &tqs)
  */
 void JacoComm::getCartesianPosition(JacoPose &position)
 {
-    boost::recursive_mutex::scoped_lock lock(api_mutex_);
+    debug_scoped_lock lock(api_mutex_);
     CartesianPosition jaco_cartesian_position;
     memset(&jaco_cartesian_position, 0, sizeof(jaco_cartesian_position));  // zero structure
 
@@ -708,7 +718,7 @@ void JacoComm::getCartesianPosition(JacoPose &position)
  */
 void JacoComm::getCartesianForce(JacoPose &cart_force)
 {
-    boost::recursive_mutex::scoped_lock lock(api_mutex_);
+    debug_scoped_lock lock(api_mutex_);
     CartesianPosition jaco_cartesian_force;
     memset(&jaco_cartesian_force, 0, sizeof(jaco_cartesian_force));  // zero structure
 
@@ -726,7 +736,7 @@ void JacoComm::getCartesianForce(JacoPose &cart_force)
  */
 void JacoComm::getFingerPositions(FingerAngles &fingers)
 {
-    boost::recursive_mutex::scoped_lock lock(api_mutex_);
+    debug_scoped_lock lock(api_mutex_);
     CartesianPosition jaco_cartesian_position;
     memset(&jaco_cartesian_position, 0, sizeof(jaco_cartesian_position));  // zero structure
 
@@ -749,7 +759,7 @@ void JacoComm::getFingerPositions(FingerAngles &fingers)
  */
 void JacoComm::setCartesianInertiaDamping(const CartesianInfo &inertia, const CartesianInfo& damping)
 {
-    boost::recursive_mutex::scoped_lock lock(api_mutex_);
+    debug_scoped_lock lock(api_mutex_);
     int result = jaco_api_.setCartesianInertiaDamping(inertia, damping);
     if (result != NO_ERROR_KINOVA)
     {
@@ -762,7 +772,7 @@ void JacoComm::setCartesianInertiaDamping(const CartesianInfo &inertia, const Ca
  */
 void JacoComm::setCartesianForceMinMax(const CartesianInfo &min, const CartesianInfo& max)
 {
-    boost::recursive_mutex::scoped_lock lock(api_mutex_);
+    debug_scoped_lock lock(api_mutex_);
     int result = jaco_api_.setCartesianForceMinMax(min, max);
     if (result != NO_ERROR_KINOVA)
     {
@@ -775,7 +785,7 @@ void JacoComm::setCartesianForceMinMax(const CartesianInfo &min, const Cartesian
  */
 void JacoComm::startForceControl()
 {
-    boost::recursive_mutex::scoped_lock lock(api_mutex_);
+    debug_scoped_lock lock(api_mutex_);
     int result = jaco_api_.startForceControl();
     if (result != NO_ERROR_KINOVA)
     {
@@ -788,7 +798,7 @@ void JacoComm::startForceControl()
  */
 void JacoComm::stopForceControl()
 {
-    boost::recursive_mutex::scoped_lock lock(api_mutex_);
+    debug_scoped_lock lock(api_mutex_);
     int result = jaco_api_.stopForceControl();
     if (result != NO_ERROR_KINOVA)
     {
@@ -801,7 +811,7 @@ void JacoComm::stopForceControl()
  */
 void JacoComm::getConfig(ClientConfigurations &config)
 {
-    boost::recursive_mutex::scoped_lock lock(api_mutex_);
+    debug_scoped_lock lock(api_mutex_);
     memset(&config, 0, sizeof(config));  // zero structure
 
     int result = jaco_api_.getClientConfigurations(config);
@@ -817,7 +827,7 @@ void JacoComm::getConfig(ClientConfigurations &config)
  */
 void JacoComm::getQuickStatus(QuickStatus &quick_status)
 {
-    boost::recursive_mutex::scoped_lock lock(api_mutex_);
+    debug_scoped_lock lock(api_mutex_);
     memset(&quick_status, 0, sizeof(quick_status));  // zero structure
     int result = jaco_api_.getQuickStatus(quick_status);
     if (result != NO_ERROR_KINOVA)
@@ -829,7 +839,7 @@ void JacoComm::getQuickStatus(QuickStatus &quick_status)
 
 void JacoComm::stopAPI()
 {
-    boost::recursive_mutex::scoped_lock lock(api_mutex_);
+    debug_scoped_lock lock(api_mutex_);
     is_software_stop_ = true;
 
     int result = jaco_api_.stopControlAPI();
@@ -848,7 +858,7 @@ void JacoComm::stopAPI()
 
 void JacoComm::startAPI()
 {
-    boost::recursive_mutex::scoped_lock lock(api_mutex_);
+    debug_scoped_lock lock(api_mutex_);
     if (is_software_stop_)
     {
         is_software_stop_ = false;
