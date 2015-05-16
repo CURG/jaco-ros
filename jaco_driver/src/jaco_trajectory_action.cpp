@@ -112,7 +112,7 @@ namespace jaco {
 
             bool stop = false;
 
-            ros::Rate r(100); // The loop below will run at 100Hz (every 4ms)
+            ros::Rate r(100); // The loop below will run at 100Hz (every 10ms)
             
             // This loop finalizes the movement by checking angular distance
             // of joints from the desired configuration. Instead of moving
