@@ -182,7 +182,7 @@ namespace jaco {
                 
                 // Adjust actuator velocities accordingly
                 arm_comm_.addTrajectoryPoint(point);
-
+                ros::spinOnce();
                 // Ensure execution at 100Hz
                 r.sleep();
             }
