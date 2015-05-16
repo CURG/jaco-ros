@@ -11,7 +11,7 @@
 
 #define PI 3.14159265359
 #define TOLERANCE 1 // Goal tolerance in degrees
-#define KP 4 // P-regulator constant
+#define KP 2 // P-regulator constant
 
 namespace jaco {
 
