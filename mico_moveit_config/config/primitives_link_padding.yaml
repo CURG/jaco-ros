@@ -1,0 +1,12 @@
+default_robot_link_padding:
+  mico_link_1: .01
+  mico_link_base: .01
+  mico_link_2: .01
+  mico_link_hand: 0.00
+  mico_link_finger_1_distal: 0.00
+  mico_link_finger_2_distal: 0.00
+  mico_link_finger_1: 0.00
+  mico_link_finger_2: 0.00
+
+default_object_padding: 0.01
+default_robot_padding: 0.0
