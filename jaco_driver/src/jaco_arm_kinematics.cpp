@@ -110,7 +110,7 @@ void JacoKinematics::updateForward(float q1, float q2, float q3, float q4, float
     transform.setOrigin(translation_v);
 
     broadcaster_.sendTransform(tf::StampedTransform(transform, ros::Time::now(),
-                                                    concatTfName(tf_prefix_, "link_base"),
+                                                    concatTfName(tf_prefix_, "api_origin"),
                                                     concatTfName(tf_prefix_, "link_1")));
 
 #ifdef PRINT_DEBUG_INFO
