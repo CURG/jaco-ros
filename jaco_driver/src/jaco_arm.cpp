@@ -76,7 +76,7 @@ JacoArm::JacoArm(JacoComm &arm, const ros::NodeHandle &nodeHandle)
     cartesian_velocity_subscriber_ = node_handle_.subscribe("in/cartesian_velocity", 1,
                                                           &JacoArm::cartesianVelocityCallback, this);
 
-    node_handle_.param<double>("status_interval_seconds", status_interval_seconds_, 0.1);
+    node_handle_.param<double>("status_interval_seconds", status_interval_seconds_, 0.2);
     node_handle_.param<double>("joint_angular_vel_timeout", joint_vel_timeout_seconds_, 0.25);
     node_handle_.param<double>("cartesian_vel_timeout", cartesian_vel_timeout_seconds_, 0.25);
     node_handle_.param<double>("joint_angular_vel_timeout", joint_vel_interval_seconds_, 0.1);

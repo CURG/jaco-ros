@@ -63,6 +63,8 @@ class JacoArm
     bool stopForceControlCallback(jaco_msgs::Stop::Request &req,
                                   jaco_msgs::Stop::Response &res);
 
+
+
  private:
     void positionTimer(const ros::TimerEvent&);
     void cartesianVelocityTimer(const ros::TimerEvent&);
@@ -83,11 +85,12 @@ class JacoArm
     ros::Subscriber joint_velocity_subscriber_;
     ros::Subscriber cartesian_velocity_subscriber_;
 
+    ros::Publisher joint_state_publisher_;
     ros::Publisher joint_angles_publisher_;
+
     ros::Publisher tool_position_publisher_;
     ros::Publisher tool_wrench_publisher_;
     ros::Publisher finger_position_publisher_;
-    ros::Publisher joint_state_publisher_;
     ros::Publisher force_angular_gravity_free_publisher_;
     ros::Publisher force_cartesian_publisher_;
     ros::Publisher forces_info_publisher_;

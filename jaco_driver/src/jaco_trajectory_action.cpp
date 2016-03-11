@@ -11,17 +11,20 @@
 
 #define PI 3.14159265359
 #define TOLERANCE 1 // Goal tolerance in degrees
+#define WAYPOINT_TOLERANCE 60
+#define MAX_ERROR_TOLERANCE 40 //Max Goal tolerance in degress for final snap to joint pose
 #define KP 2 // P-regulator constant
 
 namespace jaco {
 
     JacoTrajectoryActionServer::JacoTrajectoryActionServer(JacoComm &arm_comm, const ros::NodeHandle &nh)
     : arm_comm_(arm_comm),
-    node_handle_(nh, "controller"),
-    action_server_(node_handle_,
-    "follow_joint_trajectory",
-    boost::bind(&JacoTrajectoryActionServer::actionCallback, this, _1),
-    false) {
+      node_handle_(nh, "controller"),
+      action_server_(node_handle_,
+        "follow_joint_trajectory",
+        boost::bind(&JacoTrajectoryActionServer::actionCallback, this, _1),
+        false)
+    {
         action_server_.start();
         ROS_INFO_STREAM("JACO FollowJointTrajectory action server has started.");
     }
@@ -43,7 +46,10 @@ namespace jaco {
             trajectory_msgs::JointTrajectoryPoint goal_waypoint =
                     goal->trajectory.points[goal->trajectory.points.size() - 1];
 
-            JacoAngles current_joint_angles, goal_joint_angles;
+            trajectory_msgs::JointTrajectoryPoint start_waypoint =
+                    goal->trajectory.points[0];
+
+            JacoAngles current_joint_angles, goal_joint_angles, start_joint_angles;
             goal_joint_angles.Actuator1 = goal_waypoint.positions[0] * (180 / PI);
             goal_joint_angles.Actuator2 = goal_waypoint.positions[1] * (180 / PI);
             goal_joint_angles.Actuator3 = goal_waypoint.positions[2] * (180 / PI);
@@ -53,10 +59,62 @@ namespace jaco {
             convertDHAnglesToPhysical(goal_joint_angles);
             normalizeAngles(goal_joint_angles);
 
-            ros::Time start_time = ros::Time::now();
+            start_joint_angles.Actuator1 = start_waypoint.positions[0] * (180 / PI);
+            start_joint_angles.Actuator2 = start_waypoint.positions[1] * (180 / PI);
+            start_joint_angles.Actuator3 = start_waypoint.positions[2] * (180 / PI);
+            start_joint_angles.Actuator4 = start_waypoint.positions[3] * (180 / PI);
+            start_joint_angles.Actuator5 = start_waypoint.positions[4] * (180 / PI);
+            start_joint_angles.Actuator6 = start_waypoint.positions[5] * (180 / PI);
+            convertDHAnglesToPhysical(start_joint_angles);
+            normalizeAngles(start_joint_angles);
 
-            for (unsigned int i = 0; i < goal->trajectory.points.size()-1; i++) {
-                
+            ///////////////////////////////////
+            //Sanity Check that arm is actually starting from the first waypoint in the trajectory
+            ///////////////////////////////////
+            arm_comm_.getJointAngles(current_joint_angles);
+            normalizeAngles(current_joint_angles);
+            AngularInfo error = computeError(start_joint_angles, current_joint_angles);
+            if (std::abs(error.Actuator1) > MAX_ERROR_TOLERANCE) {
+                ROS_ERROR_STREAM("Way to large of error in JacoTrajectoryActionServer actuator 1 before even starting, setting to aborted");
+                action_server_.setAborted();
+                ROS_INFO_STREAM("Leaving: JacoTrajectoryActionServer::actionCallback\n");
+                return;
+            }
+            if (std::abs(error.Actuator2) > MAX_ERROR_TOLERANCE) {
+                ROS_ERROR_STREAM("Way to large of error in JacoTrajectoryActionServer actuator 2 before even starting, setting to aborted");
+                action_server_.setAborted();
+                ROS_INFO_STREAM("Leaving: JacoTrajectoryActionServer::actionCallback\n");
+                return;
+            }
+            if (std::abs(error.Actuator3) > MAX_ERROR_TOLERANCE) {
+                ROS_ERROR_STREAM("Way to large of error in JacoTrajectoryActionServer actuator 3 before even starting, setting to aborted");
+                action_server_.setAborted();
+                ROS_INFO_STREAM("Leaving: JacoTrajectoryActionServer::actionCallback\n");
+                return;
+            }
+            if (std::abs(error.Actuator4) > MAX_ERROR_TOLERANCE) {
+                ROS_ERROR_STREAM("Way to large of error in JacoTrajectoryActionServer actuator 4 before even starting, setting to aborted");
+                action_server_.setAborted();
+                ROS_INFO_STREAM("Leaving: JacoTrajectoryActionServer::actionCallback\n");
+                return;
+            }
+            if (std::abs(error.Actuator5) > MAX_ERROR_TOLERANCE) {
+                ROS_ERROR_STREAM("Way to large of error in JacoTrajectoryActionServer actuator 5 before even starting, setting to aborted");
+                action_server_.setAborted();
+                return;
+            }
+            if (std::abs(error.Actuator6) > MAX_ERROR_TOLERANCE) {
+                ROS_ERROR_STREAM("Way to large of error in JacoTrajectoryActionServer actuator 6 before even starting, setting to aborted");
+                action_server_.setAborted();
+                ROS_INFO_STREAM("Leaving: JacoTrajectoryActionServer::actionCallback\n");
+                return;
+            }
+
+            ros::Time start_time = ros::Time::now();
+            bool stop = false;
+            bool read_joint_angles = false;
+            for (unsigned int i = 0; i < goal->trajectory.points.size(); i++) {
+
                 // Get the waypoint to be reached
                 trajectory_msgs::JointTrajectoryPoint waypoint =
                         goal->trajectory.points[i];
@@ -80,6 +138,50 @@ namespace jaco {
                 point.Position.Actuators.Actuator5 = -waypoint.velocities[4] * (180 / PI);
                 point.Position.Actuators.Actuator6 = -waypoint.velocities[5] * (180 / PI);
 
+                JacoAngles current_waypoint_angles;
+                current_waypoint_angles.Actuator1 = waypoint.positions[0] * (180 / PI);
+                current_waypoint_angles.Actuator2 = waypoint.positions[1] * (180 / PI);
+                current_waypoint_angles.Actuator3 = waypoint.positions[2] * (180 / PI);
+                current_waypoint_angles.Actuator4 = waypoint.positions[3] * (180 / PI);
+                current_waypoint_angles.Actuator5 = waypoint.positions[4] * (180 / PI);
+                current_waypoint_angles.Actuator6 = waypoint.positions[5] * (180 / PI);
+                convertDHAnglesToPhysical(current_waypoint_angles);
+                normalizeAngles(current_waypoint_angles);
+
+                read_joint_angles = false;
+                while(!read_joint_angles){
+                    try{
+                        arm_comm_.getJointAngles(current_joint_angles);
+                        read_joint_angles = true;
+                    } catch (const std::exception& e) {
+                        ROS_ERROR_STREAM(e.what());
+                        ROS_ERROR_STREAM("Carrying on anyway!");
+                    }
+                }
+
+                normalizeAngles(current_joint_angles);
+                error = computeError(current_waypoint_angles, current_joint_angles);
+
+                stop = false;
+                checkCurrentWayPointError(error.Actuator1, stop);
+                checkCurrentWayPointError(error.Actuator2, stop);
+                checkCurrentWayPointError(error.Actuator3, stop);
+                checkCurrentWayPointError(error.Actuator4, stop);
+                checkCurrentWayPointError(error.Actuator5, stop);
+                checkCurrentWayPointError(error.Actuator6, stop);
+                if(stop)
+                {
+                    ROS_ERROR_STREAM("Inside Open Loop Velocity Controller: Way to large of error in JacoTrajectoryActionServer actuator setting to aborted");
+                    ROS_ERROR_STREAM("error.Actuator1: " << error.Actuator1 << std::endl);
+                    ROS_ERROR_STREAM("error.Actuator2: " << error.Actuator2 << std::endl);
+                    ROS_ERROR_STREAM("error.Actuator3: " << error.Actuator3 << std::endl);
+                    ROS_ERROR_STREAM("error.Actuator4: " << error.Actuator4 << std::endl);
+                    ROS_ERROR_STREAM("error.Actuator5: " << error.Actuator5 << std::endl);
+                    ROS_ERROR_STREAM("error.Actuator6: " << error.Actuator6 << std::endl);
+                    action_server_.setAborted();
+                    return;
+                }
+
                 ros::Rate r(100);   // The loop below will run at 100Hz
                 
                 while ((waypoint.time_from_start >= ros::Time::now() - start_time)) {
@@ -99,8 +201,8 @@ namespace jaco {
 
                     // Get the current real angles and normalize them for comparing
                     // with the target and adjusting the execution
-                    arm_comm_.getJointAngles(current_joint_angles);
-                    normalizeAngles(current_joint_angles);
+//                    arm_comm_.getJointAngles(current_joint_angles);
+//                    normalizeAngles(current_joint_angles);
 
                     // Adjust actuator velocities accordingly
                     arm_comm_.addTrajectoryPoint(point);
@@ -110,7 +212,7 @@ namespace jaco {
                 }
             }
 
-            bool stop = false;
+            stop = false;
 
             ros::Rate r(100); // The loop below will run at 100Hz (every 10ms)
             
@@ -144,40 +246,20 @@ namespace jaco {
                 // The trajectory consists of angular velocity waypoints
                 point.Position.Type = ANGULAR_VELOCITY;
                 
-                // If not in the position yet, adjust the first motor
-                if (std::abs(error.Actuator1) > TOLERANCE) {
-                    point.Position.Actuators.Actuator1 = KP * error.Actuator1;
-                    stop = false;
-                }
-
-                // If not in the position yet, adjust the second motor
-                if (std::abs(error.Actuator2) > TOLERANCE) {
-                    point.Position.Actuators.Actuator2 = KP * error.Actuator2;
-                    stop = false;
-                }
-
-                // If not in the position yet, adjust the third motor
-                if (std::abs(error.Actuator3) > TOLERANCE) {
-                    point.Position.Actuators.Actuator3 = KP * error.Actuator3;
-                    stop = false;
-                }
-
-                // If not in the position yet, adjust the fourth motor
-                if (std::abs(error.Actuator4) > TOLERANCE) {
-                    point.Position.Actuators.Actuator4 = KP * error.Actuator4;
-                    stop = false;
-                }
-                
-                // If not in the position yet, adjust the fifth motor
-                if (std::abs(error.Actuator5) > TOLERANCE) {
-                    point.Position.Actuators.Actuator5 = KP * error.Actuator5;
-                    stop = false;
-                }
-                
-                // If not in the position yet, adjust the sixth motor
-                if (std::abs(error.Actuator6) > TOLERANCE) {
-                    point.Position.Actuators.Actuator6 = KP * error.Actuator6;
-                    stop = false;
+                stop = true;//have we reached our goal
+                bool exit_now = false;//is something really wrong
+                setPControllerJointVelocity(point.Position.Actuators.Actuator1, error.Actuator1,  stop, exit_now);
+                setPControllerJointVelocity(point.Position.Actuators.Actuator2, error.Actuator2,  stop, exit_now);
+                setPControllerJointVelocity(point.Position.Actuators.Actuator3, error.Actuator3,  stop, exit_now);
+                setPControllerJointVelocity(point.Position.Actuators.Actuator4, error.Actuator4,  stop, exit_now);
+                setPControllerJointVelocity(point.Position.Actuators.Actuator5, error.Actuator5,  stop, exit_now);
+                setPControllerJointVelocity(point.Position.Actuators.Actuator6, error.Actuator6,  stop, exit_now);
+                if(exit_now)
+                {
+                    ROS_ERROR_STREAM("Way to large of error in JacoTrajectoryActionServer actuator setting to aborted");
+                    action_server_.setAborted();
+                    ROS_INFO_STREAM("Leaving: JacoTrajectoryActionServer::actionCallback\n");
+                    return;
                 }
                 
                 // Adjust actuator velocities accordingly
@@ -196,6 +278,48 @@ namespace jaco {
             action_server_.setAborted();
         }
     }
+
+    void JacoTrajectoryActionServer::checkCurrentWayPointError(float &error, bool &stop)
+    {
+        if (std::abs(error) > WAYPOINT_TOLERANCE)
+        {
+            ROS_ERROR_STREAM("Way to large of error in JacoTrajectoryActionServer actuator, error: " << error);
+            action_server_.setAborted();
+            ROS_INFO_STREAM("Leaving: JacoTrajectoryActionServer::actionCallback\n");
+            stop=true;
+        }
+    }
+
+    void JacoTrajectoryActionServer::setPControllerJointVelocity(float & actuator, float &error, bool &stop, bool &exit_now) {
+        // If not in the position yet, adjust the motor
+        if (std::abs(error) > TOLERANCE)
+        {
+            if (std::abs(error) > MAX_ERROR_TOLERANCE) {
+                exit_now = true;
+            }
+
+            stop = false;
+
+            float min_speed = 0.1;
+            if (std::abs(error) < min_speed )
+            {
+                if (error < 0)
+                {
+                    actuator = -min_speed;
+                }
+                else
+                {
+                    actuator = min_speed;
+                }
+            }
+            else
+            {
+                actuator = KP * error;
+            }
+        }
+
+    }
+
 
     /**
      * Converts angles from DH convention to JACO's physical angles.

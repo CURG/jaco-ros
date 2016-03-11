@@ -22,6 +22,7 @@ namespace jaco {
     private:
         ros::NodeHandle node_handle_;
         JacoComm &arm_comm_;
+
         actionlib::SimpleActionServer<control_msgs::FollowJointTrajectoryAction> action_server_;
         
         void convertDHAnglesToPhysical(AngularInfo &angles);
@@ -32,6 +33,11 @@ namespace jaco {
         void printAngles(const char* desc, AngularInfo &angles);
         double normalize(const double value, const double start, const double end);
         bool areValuesClose(float first, float second, float tolerance);
+
+        void checkCurrentWayPointError(float &error, bool &stop);
+        void setPControllerJointVelocity(float & actuator, float &error, bool &stop, bool &exit_now);
+
+
         
     };
 }

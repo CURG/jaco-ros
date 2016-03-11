@@ -58,7 +58,7 @@ namespace jaco
   public: debug_scoped_lock(boost::recursive_mutex &api_mutex) :
       boost::recursive_mutex::scoped_lock(api_mutex)
       {
-        ROS_INFO_STREAM("Thread ID: " << boost::this_thread::get_id());
+        //ROS_INFO_STREAM("Thread ID: " << boost::this_thread::get_id());
       }
   };
 

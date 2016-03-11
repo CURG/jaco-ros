@@ -14,6 +14,9 @@
 #include "jaco_driver/jaco_trajectory_action.h"
 #include "jaco_driver/joystick_command_translator.h"
 
+#include <sensor_msgs/JointState.h>
+#include <jaco_msgs/JointAngles.h>
+
 
 int main(int argc, char **argv)
 {
